@@ -1,132 +1,265 @@
 import * as eff from 'redux-saga/effects';
-import path from 'path';
 import fs from 'fs';
-import {
-  timerActions,
-} from 'actions';
-import Raven from 'raven-js';
+import path from 'path';
 import {
   remote,
+  desktopCapturer,
 } from 'electron';
+import mergeImages from 'merge-images';
+import screenshot from 'screenshot-desktop';
 import {
-  getUiState,
-  getUserData,
-  getTimerState,
-  getSettingsState,
-} from 'selectors';
+  actionTypes,
+} from 'actions';
 
 import {
   throwError,
 } from './ui';
 
-const Api = () => 'deprecated';
+const { app } = remote.require('electron');
 
-export function* uploadScreenshot({
-  screenshotTime,
-  timestamp,
-  lastScreenshotPath,
-  lastScreenshotThumbPath,
-}) {
-  try {
-    // yield put({ type: types.SET_SCREENSHOT_UPLOAD_STATE, payload: true });
 
-    const isOffline = lastScreenshotPath.includes('offline_screens');
-    const fileName = path.basename(lastScreenshotPath);
-    const thumbFilename = path.basename(lastScreenshotThumbPath);
+function getScreen(callback) {
+  const screenshots = [];
 
-    if (!isOffline) {
-      yield eff.put(timerActions.setLastScreenshotTime(screenshotTime));
-    }
+  function handleStream(stream, finalScreenshot) {
+    // Create hidden video tag
+    const video = document.createElement('video');
+    video.style.cssText = 'position:absolute;top:-10000px;left:-10000px;';
+    // Event connected to stream
+    video.onloadedmetadata = () => {
+      // Set video ORIGINAL height (screenshot)
+      video.style.height = `${video.videoHeight}px`; // videoHeight
+      video.style.width = `${video.videoWidth}px`; // videoWidth
 
-    // upload screenshot
-    const image = yield eff.cps(fs.readFile, lastScreenshotPath);
-    const { url } = yield eff.call(Api.signUploadUrlForS3Bucket, fileName);
-    yield eff.call(Api.uploadScreenshotOnS3Bucket, { url, image });
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      // Draw video on canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      screenshots.push(canvas.toDataURL('image/jpeg'));
 
-    // upload thumb
-    const thumbImage = yield eff.cps(fs.readFile, lastScreenshotThumbPath);
-    const thumbUrlData = yield eff.call(Api.signUploadUrlForS3Bucket, thumbFilename);
-    yield eff.call(Api.uploadScreenshotOnS3Bucket, { url: thumbUrlData.url, image: thumbImage });
+      if (callback) {
+        // Save screenshot to jpg - base64
+        if (finalScreenshot) {
+          callback(screenshots);
+        }
+      } else {
+        // console.log('Need callback!');
+      }
 
-    const currentScreenshot = `${remote.getGlobal('appDir')}/current_screenshots/${fileName}`;
-
-    yield eff.call(fs.writeFileSync, currentScreenshot, image);
-
-    const screenshot = {
-      fileName,
-      screenshotTime,
-      thumbFilename,
-      timestamp,
+      // Remove hidden video tag
+      video.remove();
+      try {
+        // Destroy connect to stream
+        stream.getTracks()[0].stop();
+      } catch (e) {
+        // console.log(e);
+      }
     };
+    video.src = URL.createObjectURL(stream);
+    document.body.appendChild(video);
+  }
 
-    yield eff.put(timerActions.addScreenshot(screenshot, screenshotTime));
-    yield eff.cps(fs.unlink, lastScreenshotPath);
+  function handleError(e) {
+    console.log(e);
+  }
 
-    if (lastScreenshotThumbPath.length) {
-      yield eff.cps(fs.unlink, lastScreenshotThumbPath);
+  desktopCapturer.getSources({ types: ['screen'] }, (error, sources) => {
+    if (error) throw error;
+    for (let i = 0; i < sources.length; i += 1) {
+      const finalScreenshot = i === sources.length - 1;
+      navigator.webkitGetUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sources[i].id,
+            maxWidth: window.screen.width,
+            minWidth: window.screen.width,
+            maxHeight: window.screen.height,
+            minHeight: window.screen.height,
+          },
+        },
+      }, stream => handleStream(stream, finalScreenshot), handleError);
     }
+  });
+}
 
-    // yield put({ type: types.SET_SCREENSHOT_UPLOAD_STATE, payload: false });
-  } catch (err) {
-    const fileName = path.basename(lastScreenshotPath);
-    const thumbFilename = path.basename(lastScreenshotThumbPath);
-    const isOffline = lastScreenshotPath.includes('offline_screens');
-    // TODO determine error
-    const mainScreenError = true;
-    const thumbScreenError = true;
-    //
-    if (!isOffline) {
-      if (mainScreenError) {
-        fs.rename(
-          lastScreenshotPath,
-          `${remote.getGlobal('appDir')}/offline_screens/${fileName}`,
-        );
-      }
-      if (thumbScreenError) {
-        fs.rename(
-          lastScreenshotPath,
-          `${remote.getGlobal('appDir')}/offline_screens/${thumbFilename}`,
-        );
-      }
-    }
-    yield eff.call(throwError, err);
-    Raven.captureException(err);
+function makeScreenshot() {
+  return new Promise((resolve, reject) => {
+    getScreen((images) => {
+      console.log(images[0]);
+      let xPointer = 0;
+      let totalWidth = 0;
+      let maxHeight = 0;
+      const imagesWithCords = images.map((imageSrc) => {
+        const image = new Image();
+        image.src = imageSrc;
+        const imageObj = {
+          src: imageSrc,
+          x: xPointer,
+          y: 0,
+        };
+        xPointer = image.naturalWidth + xPointer;
+        totalWidth += image.naturalWidth;
+        maxHeight = image.naturalHeight > maxHeight ? image.naturalHeight : maxHeight;
+        return imageObj;
+      });
+      const now = Date.now();
+      const screenshotName = `${now}`;
+      mergeImages(
+        imagesWithCords,
+        {
+          width: totalWidth,
+          height: maxHeight,
+          format: 'image/jpeg',
+          quality: 0.9,
+        },
+      )
+        .then(
+          (merged, err) => {
+            // Scren thumb
+            /*
+            const canvas = window.document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = () => {
+              context.drawImage(img, 0, 0, 300, 150);
+              const thumb = canvas.toDataURL('image/jpeg').replace(/^data:image\/jpeg;base64,/, '');
+              const thumbImageDir = `${remote.getGlobal('appDir')}/screens/${screenshotName}_thumb.jpeg`;
+              fs.writeFile(thumbImageDir, thumb, 'base64');
+              remote.getGlobal('sharedObj').lastScreenshotThumbPath = thumbImageDir;
+            };
+            img.src = merged;
+            */
+
+            // Screen
+            const validImage = merged.replace(/^data:image\/jpeg;base64,/, '');
+            const imageDir = `${app.getPath('userData')}/screens/${screenshotName}.jpeg`;
+
+            function ensureDirectoryExistence(filePath) {
+              const dirname = path.dirname(filePath);
+              if (!fs.existsSync(dirname)) {
+                ensureDirectoryExistence(dirname);
+                fs.mkdirSync(dirname);
+              }
+            }
+
+            ensureDirectoryExistence(imageDir);
+            fs.writeFile(imageDir, validImage, 'base64', (err) => {
+              if (err) reject();
+              resolve(imageDir);
+            });
+          },
+        ).catch((e) => {
+          console.log(e);
+        });
+    });
+  });
+}
+
+function ensureDirectoryExistence(filePath) {
+  const dirname = path.dirname(filePath);
+  if (!fs.existsSync(dirname)) {
+    ensureDirectoryExistence(dirname);
+    fs.mkdirSync(dirname);
   }
 }
 
-export function* rejectScreenshot(screenshotPath) {
-  const lastScreenshotTime = yield eff.select(getTimerState('lastScreenshotTime'));
-  const time = yield eff.select(getTimerState('time'));
-  const timeDiff = time - lastScreenshotTime;
-  yield eff.put(timerActions.dismissIdleTime(timeDiff));
-  yield eff.cps(fs.unlink, screenshotPath);
-}
-
-export function* takeScreenshot() {
-  try {
-    const screenshotTime = yield eff.select(getTimerState('time'));
-    const userData = yield eff.select(getUserData);
-    const host = yield eff.select(getUiState('host'));
-    const localDesktopSettings = yield eff.select(getSettingsState('localDesktopSettings'));
-    yield eff.call(
-      Api.makeScreenshot,
-      screenshotTime,
-      userData.key,
-      host.hostname,
-      localDesktopSettings.showScreenshotPreview,
-      localDesktopSettings.screenshotPreviewTime,
-      localDesktopSettings.nativeNotifications,
+function loadImage(buf) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const src = `data:image/jpeg;base64,${buf.toString('base64')}`;
+    img.addEventListener(
+      'load',
+      () => {
+        const imageObj = {
+          src,
+          y: 0,
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight,
+        };
+        resolve(imageObj);
+      },
     );
-  } catch (err) {
-    yield eff.call(throwError, err);
-    Raven.captureException(err);
-  }
+    img.addEventListener('error', () => {
+      reject(new Error(`Failed to load image's URL: ${buf}`));
+    });
+    img.src = src;
+  });
 }
 
-export function* cleanExcessScreenshotPeriods() {
-  const currentTime = yield eff.select(getTimerState('time'));
-  const periods = yield eff.select(getSettingsState('screenshotsPeriod'));
-  const newPeriods = periods.filter(p => p > currentTime);
+export function* takeScreenshotRequest() {
+  while (true) {
+    const { isTest } = yield eff.take(actionTypes.TAKE_SCREENSHOT_REQUEST);
+    try {
+      console.log(isTest);
+      const displays = yield eff.call(screenshot.listDisplays);
+      const images = yield eff.all(
+        displays.map(
+          d => eff.call(
+            screenshot,
+            {
+              screen: d.id,
+            },
+          ),
+        ),
+      );
+      const imgs = yield eff.all(images.map(
+        i => eff.call(
+          loadImage,
+          i,
+        ),
+      ));
+      const width = imgs.reduce(
+        (acc, i) => (
+          acc + i.naturalWidth
+        ),
+        0,
+      );
+      const height = imgs.reduce(
+        (acc, i) => (
+          acc > i.naturalHeight ? acc : i.naturalHeight
+        ),
+        0,
+      );
+      const mergedImages = yield eff.call(
+        mergeImages,
+        imgs.reduce(
+          (acc, i) => ({
+            xPointer: acc.xPointer + i.naturalWidth,
+            imgs: [
+              ...acc.imgs,
+              {
+                ...i,
+                x: acc.xPointer,
+              },
+            ],
+          }),
+          {
+            xPointer: 0,
+            imgs: [],
+          },
+        ).imgs,
+        {
+          width,
+          height,
+          format: 'image/jpeg',
+          quality: 0.9,
+        },
+      );
+      const validImage = mergedImages.replace(/^data:image\/jpeg;base64,/, '');
+      const imageDir = `${app.getPath('userData')}/screens/2.jpeg`;
 
-  yield eff.put(timerActions.setScreenshotPeriods(newPeriods));
+      ensureDirectoryExistence(imageDir);
+      fs.writeFile(imageDir, validImage, 'base64', (err) => {
+        console.log(err);
+      });
+    } catch (err) {
+      console.log(err);
+      yield eff.call(throwError, err);
+    }
+  }
 }

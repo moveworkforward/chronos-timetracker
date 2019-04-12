@@ -5059,6 +5059,11 @@ ignore@^4.0.6:
   resolved "https://registry.yarnpkg.com/ignore/-/ignore-4.0.6.tgz#750e3db5862087b4737ebac8207ffd1ef27b25fc"
   integrity sha512-cyFDKrqc/YdcWFniJhzI42+AzS+gNwmUzOSFcRCQYwySuBBBy/KjuxWLZ/FHEH6Moq1NizMOBWyTcv8O4OZIMg==
 
+image-promise@6.0.2:
+  version "6.0.2"
+  resolved "https://registry.yarnpkg.com/image-promise/-/image-promise-6.0.2.tgz#0233afdb6c198db157f94329adcd6360ffdb535a"
+  integrity sha512-w2kNhSKxGvsY4lNIIBwh5N+04e6LH57RnSOnLeCkTzyJ+RZCl+gpqL/2EbOiK95yNaG/1Wkn+oYxhErPbZ0seg==
+
 image-size@~0.5.0:
   version "0.5.5"
   resolved "https://registry.yarnpkg.com/image-size/-/image-size-0.5.5.tgz#09dfd4ab9d20e29eb1c3e80b8990378df9e3cb9c"
@@ -6036,6 +6041,11 @@ merge-descriptors@1.0.1:
   resolved "https://registry.yarnpkg.com/merge-descriptors/-/merge-descriptors-1.0.1.tgz#b00aaa556dd8b44568150ec9d1b953f3f90cbb61"
   integrity sha1-sAqqVW3YtEVoFQ7J0blT8/kMu2E=
 
+merge-images@1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/merge-images/-/merge-images-1.1.0.tgz#e41b5f29972a493d60517e49c5f9ce139c3db16a"
+  integrity sha512-RNRb9+NR/LqyKKD6AyMNT66R5BVh9y3WrFB6OqrnN38M+EwST4gxjC0luZO6H8xgpSBQ3LNq/ELtRFsDfHNsng==
+
 methods@~1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/methods/-/methods-1.1.2.tgz#5529a4d67654134edcc5266656835b0f851afcee"
@@ -6905,7 +6915,7 @@ pify@^4.0.1:
   resolved "https://registry.yarnpkg.com/pify/-/pify-4.0.1.tgz#4b2cd25c50d598735c50292224fd8c6df41e3231"
   integrity sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==
 
-pinkie-promise@^2.0.0:
+pinkie-promise@^2.0.0, pinkie-promise@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/pinkie-promise/-/pinkie-promise-2.0.1.tgz#2135d6dfa7a358c069ac9b178776288228450ffa"
   integrity sha1-ITXW36ejWMBprJsXh3YogihFD/o=
@@ -7928,7 +7938,7 @@ ret@~0.1.10:
   resolved "https://registry.yarnpkg.com/ret/-/ret-0.1.15.tgz#b8a4825d5bdb1fc3f6f53c2bc33f81388681c7bc"
   integrity sha512-TTlYpa+OL+vMMNG24xSlQGEJ3B/RzEfUlLct7b5G/ytav+wPrplCpVMFuwzXbkecJrb6IYo1iFb0S9v37754mg==
 
-rimraf@2.6.3, rimraf@^2.5.1, rimraf@^2.5.2, rimraf@^2.5.4, rimraf@^2.6.1, rimraf@^2.6.2, rimraf@^2.6.3:
+rimraf@2.6.3, rimraf@^2.5.1, rimraf@^2.5.2, rimraf@^2.5.4, rimraf@^2.6.1, rimraf@^2.6.2, rimraf@^2.6.3, rimraf@~2.6.2:
   version "2.6.3"
   resolved "https://registry.yarnpkg.com/rimraf/-/rimraf-2.6.3.tgz#b2d104fe0d8fb27cf9e0a1cda8262dd3833c6cab"
   integrity sha512-mwqeW5XsA2qAejG46gYdENaxXjx9onRNCfn7L0duuP4hCuTIi/QO7PDK07KJfp1d+izWPrzEJDcSqBa0OZQriA==
@@ -8009,6 +8019,14 @@ schema-utils@^1.0.0:
     ajv "^6.1.0"
     ajv-errors "^1.0.0"
     ajv-keywords "^3.1.0"
+
+screenshot-desktop@1.7.0:
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/screenshot-desktop/-/screenshot-desktop-1.7.0.tgz#c6f98e725ac1d5d3c38970247b870f193981df85"
+  integrity sha512-xvtOhi15ySXZ5P0AJ8OhkSKOgp0HwSY2753tCvl5sdBXvpveCepXircuv9wyHPW8tEg3h33F4nc9O19cz+fvZQ==
+  dependencies:
+    pinkie-promise "^2.0.1"
+    temp "^0.9.0"
 
 select-hose@^2.0.0:
   version "2.0.0"
@@ -8669,6 +8687,13 @@ temp-file@^3.3.2:
     async-exit-hook "^2.0.1"
     bluebird-lst "^1.0.6"
     fs-extra-p "^7.0.0"
+
+temp@^0.9.0:
+  version "0.9.0"
+  resolved "https://registry.yarnpkg.com/temp/-/temp-0.9.0.tgz#61391795a11bd9738d4c4d7f55f012cb8f55edaa"
+  integrity sha512-YfUhPQCJoNQE5N+FJQcdPz63O3x3sdT4Xju69Gj4iZe0lBKOtnAMi0SLj9xKhGkcGhsxThvTJ/usxtFPo438zQ==
+  dependencies:
+    rimraf "~2.6.2"
 
 term-size@^1.2.0:
   version "1.2.0"

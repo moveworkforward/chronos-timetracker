@@ -24,7 +24,6 @@ import {
 } from 'shared/actions';
 import {
   getTimerState,
-  getSettingsState,
   getUiState,
   getTrackingIssue,
 } from 'selectors';
@@ -121,8 +120,7 @@ function* idleWindow() {
 
 function* setTimeToTray() {
   const time = yield eff.select(getTimerState('time'));
-  const localDesktopSettings = yield eff.select(getSettingsState('localDesktopSettings'));
-  const { trayShowTimer } = localDesktopSettings;
+  const trayShowTimer = yield eff.select(getUiState('trayShowTimer'));
   if (trayShowTimer) {
     const humanFormat = new Date(time * 1000).toISOString().substr(11, 5);
     remote.getGlobal('tray').setTitle(humanFormat);
@@ -192,7 +190,7 @@ function* timerFlow() {
           }
         }
       } else {
-        const { allowEmptyComment } = yield eff.select(getSettingsState('localDesktopSettings'));
+        const allowEmptyComment = yield eff.select(getUiState('allowEmptyComment'));
         const comment = yield eff.select(getUiState('worklogComment'));
         if (!allowEmptyComment && !comment) {
           yield eff.fork(notify, {
